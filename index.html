@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>iTube</title>
+</head>
+<body>
+	<div id="app">
+		<vue-tube ref="youtube" :height="height" :width="width" :video-id="videoId" @ready="onPlayerReady" @state-change="onPlayerStateChange" />
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/vue@2.6.7/dist/vue.js"></script>
+	<script>
+    // 2. This code loads the IFrame Player API code asynchronously.
+    var tag = document.createElement('script');
+
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    // 3. This function creates an <iframe> (and YouTube player)
+    //    after the API code downloads.
+    function onYouTubeIframeAPIReady() {
+    	Vue.component('vue-tube', {
+    		data() {
+    			return {
+			      player: {}	
+    			}
+    		},
+    		template: `
+    			<div id="player"></div>
+    		`,
+    		props: ['height', 'width', 'videoId'],
+    		mounted() {
+    			this.player = new YT.Player('player', {
+			      height: this.height,
+			      width: this.width,
+			      events: {
+			      	'onReady': this.onPlayerReady,
+			      	'onStateChange': this.onPlayerStateChange
+			      }
+			    });
+    		},
+    		methods: {
+    			onPlayerReady(ev) {
+			    	this.$emit('ready', ev);
+			    },
+			    onPlayerStateChange(ev) {
+			    	this.$emit('state-change', ev);
+			    }
+    		}
+    	})
+    	const app = new Vue({
+    		el: '#app',
+    		data: {
+    			height: '390',
+		      width: '640',
+		      videoId: 'JQGRg8XBnB4'
+    		},
+    		methods: {
+    			onPlayerReady(ev) {
+    				ev.target.cuePlaylist({
+    					listType: 'search',
+    					list: 'captain+america'
+    				});
+			    	// ev.target.playVideo();
+			    },
+			    onPlayerStateChange(ev) {
+			    	console.log(ev.data);
+			    	if(ev.data == 5) {
+			    		ev.target.playVideo();
+			    	}
+			    }
+    		}
+    	});
+    }
+  </script>
+</body>
+</html>
