@@ -2,12 +2,43 @@
 <html>
 <head>
 	<title>iTube</title>
+	<link rel="stylesheet" type="text/css" href="https://unpkg.com/ant-design-vue@1.3.8/dist/antd.min.css">
 </head>
 <body>
 	<div id="app">
-		<vue-tube ref="youtube" :height="height" :width="width" :video-id="videoId" @ready="onPlayerReady" @state-change="onPlayerStateChange" />
+		<a-row type="flex" justify="center" style="margin: 10px 0">
+			<div>
+				<a-input v-model="input" @keypress.enter="loadPlaylist" />
+			</div>
+		</a-row>
+		<a-row type="flex" justify="center" style="margin-bottom: 15px">
+			<vue-tube ref="youtube" :height="height" :width="width" @ready="onPlayerReady" @state-change="onPlayerStateChange" />
+		</a-row>
+		<a-row>
+			<a-col :span="16" :offset="4">
+				<a-row type="flex" justify="space-between">
+					<a-card
+					  hoverable
+					  style="width: 240px; margin-bottom: 15px"
+					  v-for="item of playlistItems"
+					  :key="item.id"
+					  @click="onCardClick(item.videoId)"
+					>
+					  <img
+					    :src="item.snippet.thumbnail.url"
+					    slot="cover"
+					  />
+					  <a-card-meta
+					    :title="item.snippet.title">
+					    <template slot="description">www.youtube.com</template>
+					  </a-card-meta>
+					</a-card>
+				</a-row>
+			</a-col>
+		</a-row>
 	</div>
 	<script src="https://cdn.jsdelivr.net/npm/vue@2.6.7/dist/vue.js"></script>
+	<script src="https://unpkg.com/ant-design-vue@1.3.8/dist/antd.min.js"></script>
 	<script>
     // 2. This code loads the IFrame Player API code asynchronously.
     var tag = document.createElement('script');
@@ -22,7 +53,7 @@
     	Vue.component('vue-tube', {
     		data() {
     			return {
-			      player: {}	
+			      player: {}
     			}
     		},
     		template: `
@@ -51,23 +82,49 @@
     	const app = new Vue({
     		el: '#app',
     		data: {
-    			height: '390',
-		      width: '640',
-		      videoId: 'JQGRg8XBnB4'
+    			height: '540',
+		      width: '960',
+		      API_KEY: 'AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg',
+		      input: '',
+		      playlistItems: [],
+		      playlistId: 'PLy4AgKrfM11OFni_11S0xVmHX7uiTwB66'
     		},
     		methods: {
+    			loadPlaylist() {
+    				const id = this.input.split(/[= ? &]/g).find((str, index, thisArr) => {
+    					const listWord = thisArr.findIndex(item => item === 'list');
+    					if(index === listWord + 1) return str;
+  					});
+    				this.playlistId = id;
+    				this.fetchPlaylistData();
+    				this.input = '';
+    			},
+    			fetchPlaylistData() {
+    				fetch(`https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${this.playlistId}&key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&maxResults=8&part=snippet,contentDetails&fields=items(id,snippet(title,thumbnails),contentDetails)`)
+    					.then(res => res.json())
+    					.then(({ items }) => {
+    						this.$refs.youtube.player.cueVideoById(items[0].contentDetails.videoId);
+    						this.playlistItems = items.map(item => {
+    							if(!item.snippet.thumbnails) return null;
+    							const thumbnails = Object.values(item.snippet.thumbnails);
+    							return {
+    								id: item.id,
+    								videoId: item.videoId,
+    								snippet: {
+    									title: item.snippet.title,
+    									thumbnail: thumbnails[thumbnails.length - 1]
+    								}
+    							}
+    						}).filter(item => item);
+    					})
+    			},
+    			onCardClick(id) {
+    				this.$refs.youtube.player.loadVideoById(id);
+    			},
     			onPlayerReady(ev) {
-    				ev.target.cuePlaylist({
-    					listType: 'search',
-    					list: 'captain+america'
-    				});
-			    	// ev.target.playVideo();
+    				this.fetchPlaylistData();
 			    },
 			    onPlayerStateChange(ev) {
-			    	console.log(ev.data);
-			    	if(ev.data == 5) {
-			    		ev.target.playVideo();
-			    	}
 			    }
     		}
     	});
