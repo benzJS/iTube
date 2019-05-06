@@ -8,7 +8,7 @@
 	<div id="app">
 		<a-row type="flex" justify="center" style="margin: 10px 0">
       <div style="margin-bottom: 16px">
-        <a-input v-model="input">
+        <a-input v-model="input" @keypress.enter="fetchData">
           <a-select slot="addonBefore" v-model="typeOfInput" style="width: 90px">
             <a-select-option value="search">Search</a-select-option>
             <a-select-option value="playlist">Playlist</a-select-option>
@@ -33,12 +33,12 @@
 					>
 					  <img
               style="maxHeight: 240px"
-					    :src="item.thumbnail.url || item.video.thumbnail.url"
+					    :src="item.thumbnail ? item.thumbnail.url : item.video.thumbnail.url"
 					    slot="cover"
 					  />
 					  <a-card-meta>
               <p slot="title" :title="item.title || item.video.title">{{item.title || item.video.title}}</p>
-					    <template slot="description">{{ item.duration || item.video.duration | duration }}</template>
+					    <template slot="description" v-if="item.duration || item.video">{{ item.duration || item.video.duration | duration }}</template>
 					  </a-card-meta>
 					</a-card>
 				</a-row>
@@ -128,18 +128,18 @@
             this.suggestionVideos = data;
           },
     			async fetchData() {
-            if(typeOfInput === 'search') {
-              // const { data: { items } } = await axios.get(`https://www.googleapis.com/youtube/v3/search?key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&relatedToVideoId=hA6hldpSTF8type=video&q=${this.input}&part=contentDetails,snippet&fields=items(id,snippet(title,thumbnails),contentDetails(duration))&maxResults=10`);
-              // const data = items.map(item => {
-              //   const thumbnails = Object.values(item.snippet.thumbnails);
-              //     return {
-              //       id: item.id,
-              //       title: item.snippet.title,
-              //       thumbnail: thumbnails[thumbnails.length - 1],
-              //       duration: item.contentDetails.duration
-              //     }
-              // }).filter(item => item);
-              // this.suggestionVideos = data;
+            if(this.typeOfInput === 'search') {
+            	// return console.log(this.input);
+              const { data: { items } } = await axios.get(`https://www.googleapis.com/youtube/v3/search?key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&relatedToVideoId=hA6hldpSTF8&type=video&q=${this.input}&part=id,snippet&fields=items(id(videoId),snippet(title,thumbnails))&maxResults=10`);
+              const data = items.map(item => {
+                const thumbnails = Object.values(item.snippet.thumbnails);
+                return {
+                  id: item.id.videoId,
+                  title: item.snippet.title,
+                  thumbnail: thumbnails[thumbnails.length - 1]
+                }
+              }).filter(item => item);
+              this.suggestionVideos = data;
             } else {
               const id = this.input.split(/[= ? &]/g).find((str, index, thisArr) => {
               	const listWord = thisArr.findIndex(item => item === 'list');
@@ -147,6 +147,7 @@
               });
               let { data: { items } } = await axios.get(`https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${id}&key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&maxResults=10&part=snippet,contentDetails&fields=items(id,snippet(thumbnails),contentDetails(videoId))`);
               this.loading = true;
+              this.initialState = false;
               this.player.cueVideoById(items[0].contentDetails.videoId);
               const data = items.map(item => {
                 if(!item.snippet) return null;
@@ -159,16 +160,14 @@
                   }
                 }
               }).filter(item => item);
-              hanldePlaylistData(data);
-              return;
-
+              this.hanldePlaylistData(data);
             }
     			},
     			async hanldePlaylistData(data) {
             const videoIds = data.map(item => item.video.id).join(',');
             const res = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoIds}&key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&part=snippet,contentDetails&fields=items(snippet(title),contentDetails(duration))`);
             const videoResources = res.data.items;
-            data = data.map((item, index) => {
+            this.suggestionVideos = data.map((item, index) => {
               item.video.title = videoResources[index].snippet.title;
               item.video.duration = videoResources[index].contentDetails.duration;
               return item;
