@@ -23,29 +23,34 @@
 		<a-row>
 			<a-col :span="16" :offset="4">
 				<a-row type="flex" justify="space-between">
-					<a-card
-					  hoverable
-					  style="width: 240px; margin-bottom: 15px"
-					  v-for="item of suggestionVideos"
-					  :key="item.id"
-					  @click="onCardClick(item.id || item.video.id)"
-            :loading="loading"
-					>
-					  <img
-              style="maxHeight: 240px"
-					    :src="item.thumbnail ? item.thumbnail.url : item.video.thumbnail.url"
-					    slot="cover"
-					  />
-					  <a-card-meta>
-              <p slot="title" :title="item.title || item.video.title">{{item.title || item.video.title}}</p>
-					    <template slot="description" v-if="item.duration || item.video">{{ item.duration || item.video.duration | duration }}</template>
-					  </a-card-meta>
-					</a-card>
+          <router-link 
+            v-for="item of suggestionVideos"
+            :to="`/${item.id}`"
+            :key="item.id"
+          >
+  					<a-card
+  					  hoverable
+  					  style="width: 240px; margin-bottom: 15px"
+  					  :key="item.id"
+  					  @click="onCardClick(item.id)"
+              :loading="loading"
+  					>
+  					  <img
+                style="maxHeight: 240px"
+  					    :src="item.thumbnail.url"
+  					    slot="cover"
+  					  />
+  					  <a-card-meta :description="item.duration | duration">
+                <p slot="title" :title="item.title">{{ item.title }}</p>
+  					  </a-card-meta>
+  					</a-card>
+          </router-link>
 				</a-row>
 			</a-col>
 		</a-row>
 	</div>
 	<script src="https://cdn.jsdelivr.net/npm/vue@2.6.7/dist/vue.js"></script>
+  <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
 	<script src="https://unpkg.com/ant-design-vue@1.3.8/dist/antd.min.js"></script>
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 	<script>
@@ -59,6 +64,12 @@
     // 3. This function creates an <iframe> (and YouTube player)
     //    after the API code downloads.
     function onYouTubeIframeAPIReady() {
+      const routes = [
+        { path: '/:id' }
+      ]
+      const router = new VueRouter({
+        routes
+      })
     	Vue.component('vue-tube', {
     		data() {
     			return {
@@ -89,7 +100,7 @@
     		}
     	})
     	const app = new Vue({
-    		el: '#app',
+        router,
     		data: {
     			height: '540',
 		      width: '960',
@@ -129,7 +140,6 @@
           },
     			async fetchData() {
             if(this.typeOfInput === 'search') {
-            	// return console.log(this.input);
               const { data: { items } } = await axios.get(`https://www.googleapis.com/youtube/v3/search?key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&relatedToVideoId=hA6hldpSTF8&type=video&q=${this.input}&part=id,snippet&fields=items(id(videoId),snippet(title,thumbnails))&maxResults=10`);
               const data = items.map(item => {
                 const thumbnails = Object.values(item.snippet.thumbnails);
@@ -153,23 +163,20 @@
                 if(!item.snippet) return null;
                 const thumbnails = Object.values(item.snippet.thumbnails);
                 return {
-                  id: item.id,
-                  video: {
-                    id: item.contentDetails.videoId,
-                    thumbnail: thumbnails[thumbnails.length - 1],
-                  }
+                  id: item.contentDetails.videoId,
+                  thumbnail: thumbnails[thumbnails.length - 1],
                 }
               }).filter(item => item);
               this.hanldePlaylistData(data);
             }
     			},
     			async hanldePlaylistData(data) {
-            const videoIds = data.map(item => item.video.id).join(',');
+            const videoIds = data.map(item => item.id).join(',');
             const res = await axios.get(`https://www.googleapis.com/youtube/v3/videos?id=${videoIds}&key=AIzaSyCEFZFqOJqpQz5NZrU214nQr1yHIuaxDLg&part=snippet,contentDetails&fields=items(snippet(title),contentDetails(duration))`);
             const videoResources = res.data.items;
             this.suggestionVideos = data.map((item, index) => {
-              item.video.title = videoResources[index].snippet.title;
-              item.video.duration = videoResources[index].contentDetails.duration;
+              item.title = videoResources[index].snippet.title;
+              item.duration = videoResources[index].contentDetails.duration;
               return item;
             });
             setTimeout(() => {
@@ -177,6 +184,7 @@
             }, 500);
     			},
     			onCardClick(id) {
+            console.log(this.$route.params.id);
             this.initialState = false;
     				this.player.loadVideoById(id);
     			},
@@ -185,7 +193,7 @@
 			    onPlayerStateChange(ev) {
 			    }
     		}
-    	});
+    	}).$mount('#app');
     }
   </script>
 </body>
